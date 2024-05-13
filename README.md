@@ -1,6 +1,7 @@
 ## Data Validation R Codes 
 ### Context
 This repository serves as a version control to the calc_display.Rmd code used both internally by the OECD and externally by delegates to validate their data and visualise resulting rates.
+It is a private repository, therefore only people with granted access can view and modify it.
 
  ### Branches
  The repository is divided into the following branches:
