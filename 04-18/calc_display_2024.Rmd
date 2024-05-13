@@ -1,0 +1,140 @@
+---
+title: "HCQO validation and calculation codes v3.0"
+author: "Aksel Betkas, Kadri-Ann Kallas"
+date: "2023/24"
+output: html_document
+---
+
+# This is a Rmarkdown code to be run on data files from the OECD HCQO data collection. 
+
+### Here we set up R and if necessary, download the R libraries you need to run the code
+To run the codes, you will need to 
+  1. have downloaded the folder called HCQO_validation
+  2. install the necessary R packages (R should let you know which ones are necessary)
+  3. copy .csv files you wish to analyse into the folder HCQO_validation\data*
+  4. Run the code in the gray boxes without any changes
+
+To learn how to run code on R and more about the software and packages, you could see material at: https://education.rstudio.com/learn/beginner/
+
+*Note that indicators in Patient Experiences (PE) and Mental Health PREMs (MP) (that do not require calculations) are not currently eligible for processing with this code.
+
+
+## (1)  Setup
+```{r}
+### load the packages
+# if the packages are not installed yet, you can install them manually by copying the next line (without #) in the console
+# install.packages(c("dplyr", "tidyr", "ggplot2", "DT", "shinydashboard", "shiny", "forcats"))
+
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(DT)
+library(shinydashboard)
+library(shiny)
+library(forcats)
+library(data.table)
+
+### define the path to the folders
+# the path should not be changed and should run if the files are saved correctly
+path <- {"../HCQO_validation"}
+setwd(path)
+alll <- list()
+
+### call the functions
+## Validation checks
+source("functions/validate_missing_denom.R")
+source("functions/validate_rates.R")
+
+## calculate rates
+source("functions/calculate_indicator.R")
+
+
+```
+
+
+## (2) Data Validation
+```{r}
+ValidateData <- function(raw_file, file_name) {
+  # Perform the validation checks previously embedded within the CalculateIndicator function
+  library(data.table)
+  df_raw <- fread(raw_file, sep="auto", quote="") # colClasses = c("OBS_VALUE" = "numeric")) # ++ add check.names
+
+  file_name <- basename(raw_file) ##!
+  print(paste("Processing file:", file_name)) ##!
+  df_raw$Source_File <- file_name ##!
+  
+  alll <<- append(df_raw, alll)
+  ValidateMissingDenominators(df_raw, file_name)
+  ValidateRateNumerators(df_raw, file_name)
+  # Any additional validations can be added here
+}
+
+# load all csv files
+file_paths <- list.files("data", pattern = "\\.csv$", full.names = TRUE, recursive = TRUE)
+
+# Output for each csv file in a list 
+results_individual <- lapply(file_paths, ValidateData)
+```
+
+
+
+### (3) Calculate Rates
+```{r}
+
+# load all csv files
+file_paths <- list.files("data", pattern = "\\.csv$", full.names = TRUE, recursive = TRUE)
+
+# Output for each csv file in a list 
+results_individual <- lapply(file_paths, CalculateIndicator)
+
+# Combine the different csvs
+results_combined <- dplyr::bind_rows(results_individual)
+
+# Remove all white spaces from MEASURE column
+results_combined$MEASURE <- gsub("\\s", "", results_combined$MEASURE) 
+
+# Merge value names to each dataframe
+value_keys <- read.csv("value_mapping.csv", header = TRUE,
+                       colClasses =list('MEASURE' = "character",
+                                          'value' = "character" ) )
+
+# join results and keys based on indicator name
+merged_df <- merge(results_combined, value_keys, by = "MEASURE", all.x = TRUE)
+
+# Add confidence interval values
+merged_df$value.y <-ifelse(merged_df$value.x %in% c('lo_ci', 'up_ci'), yes = merged_df$value.x, no =  merged_df$value.y)
+
+
+# Drop old column and rename columns appropriately
+merged_df <- merged_df %>%  select(-value.x) %>% 
+             rename(c(UNIT = value.y, OBS_VALUE = number))
+
+
+```
+
+
+
+## (4) Dashboard
+```{r}
+source("functions/dashboard_setup.R")
+shinyApp(ui, server)
+```
+
+
+## (5) Generate the output file
+```{r}
+
+# Current date and time in DDMMYYYY_HHMM format
+date.suffix <- format(Sys.time(), "%d%m%Y_%H%M")
+
+# Add the date and time suffix to the file name
+file.name <- paste0("results_" , date.suffix, ".csv")
+file.name.full <- file.path('./results', file.name) # name output path
+
+# Save the file with the date and time suffix
+write.csv(merged_df, file = file.name.full, row.names = FALSE)
+
+
+```
+
+
