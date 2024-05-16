@@ -2,7 +2,7 @@
 
 ### Note on Internal vs External codes
 Suffix internal/external means that the codes developed are intended for internal (OECD) use or external (country) use.
-Internal codes contain more complex codes designed to run faster and compare country data. 
+Internal codes contain more complex codes designed to load larger datasets (several 100k) and compare country data in the dashboard. 
 External codes are intended to be kept more simple, so that countries easily understand them.
 
 ### 04-18
