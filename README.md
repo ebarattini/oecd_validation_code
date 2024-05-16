@@ -29,3 +29,10 @@ External codes are intended to be kept more simple, so that countries easily und
 - new output at the end of chunk 1 to previsualise the data as a tibble
 - new data visualisation for cross country comparison, which allows several REF_AREAs to be selected
 - validation checks run very slowly on combined datasets, rewrote validation checks with new syntax that makes them run in seconds instead of minutes
+
+
+## Ideas for improvement
+- automatic assignment of indicators contained in input data when displaying shiny interface
+- internal: anomalies detection in validation check
+- new validation check for missing data (e.g. a data point is missing)
+
