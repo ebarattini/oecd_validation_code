@@ -1,0 +1,192 @@
+---
+title: "HCQO validation and calculation codes v3.0"
+author: "Aksel Betkas, Kadri-Ann Kallas, Elise Barattini"
+date: "2023/24"
+output: html_document
+---
+
+# This is a Rmarkdown code to be run on data files from the OECD HCQO data collection. 
+
+### Here we set up R and if necessary, download the R libraries you need to run the code
+To run the codes, you will need to 
+  1. have downloaded the folder called HCQO_validation
+  2. install the necessary R packages (R should let you know which ones are necessary)
+  3. copy .csv files you wish to analyse into the folder HCQO_validation\data*
+  4. Run the code in the gray boxes without any changes
+
+To learn how to run code on R and more about the software and packages, you could see material at: https://education.rstudio.com/learn/beginner/
+
+*Note that indicators in Patient Experiences (PE) and Mental Health PREMs (MP) (that do not require calculations) are not currently eligible for processing with this code.
+
+
+
+
+### (1)  Setup
+This section loads the R packages necessary to run the script, sets the working directory of the user in order to be able to access the files, and calls predefined functions (can be viewed in the HCQO_validation/function folder) that will be used in the script. It displays the input data as data.tables as is to verify that the expected files are loaded.
+```{r}
+### 1. load the packages
+# if the packages are not installed yet, you can install them manually by copying the next line (without #) in the console
+# install.packages(c("dplyr", "tidyr", "ggplot2", "DT", "shinydashboard", "shiny", "forcats", "future", "future.apply"))
+
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(DT)
+library(shinydashboard)
+library(shiny)
+library(forcats)
+library(data.table)
+library(future)
+library(future.apply)
+
+### 2. define the path to the folders
+# the paths should not be changed and should run if the files are saved correctly
+path <- {"../HCQO_validation"}
+setwd(path)
+file_paths <- list.files("data", pattern = "\\.csv$", full.names = TRUE, recursive = TRUE)
+
+alll <- list()
+
+### 3. call the functions
+## data import function
+source("functions/load_csv.R")
+
+## validation checks functions
+source("functions/validate_missing_denom.R")
+source("functions/validate_rates.R")
+source("functions/validate_format.R")
+
+## calculate rates function
+source("functions/calculate_indicator.R")
+
+### 4. preview the input data 
+file_paths <- list.files("data", pattern = "\\.csv$", full.names = TRUE, recursive = TRUE)
+
+# Apply the function to each file path
+lapply(file_paths, load_csv)
+```
+
+
+
+
+### (2) Data Validation
+This section applies validation checks to the data to verify it. The current validation checks performed are the following:
+- Validation Check 1: verifies data format, including column names and values
+- Validation Check 2: verifies whether any numerators have no matching denominators
+- Validation Check 3: verifies whether there are any rates where the corresponding NUM > DEN
+
+The output of these validation checks will be printed in the console or below the chunk. They indicate whether the checks have passed/skipped/failed.
+If validation checks 2-3 do not pass, a table will be printed out with only the rows that made the check fail.
+
+```{r}
+
+plan(multisession) # Set up parallel processing
+
+validate_and_process <- function(file_path) {
+  df_raw <- fread(file_path, showProgress = FALSE)
+  if (nrow(df_raw) == 0) return(NULL)
+  
+  file_name <- basename(file_path)
+  print(paste("Processing file:", file_name))
+  
+  results <- list()
+  
+  # Perform validation checks
+  format_result <- validate_format(df_raw, file_name)
+  if (!isTRUE(format_result)) {
+    results <- append(results, list(list(file_name = file_name, check = "Validation Check 1", data = format_result)))
+  } 
+  
+  denom_result <- validate_missing_denom(df_raw, file_name)
+  if (!isTRUE(denom_result)) {
+    results <- append(results, list(list(file_name = file_name, check = "Validation Check 2", data = denom_result)))
+  } 
+  
+  rates_result <- validate_rates(df_raw, file_name)
+  if (!isTRUE(rates_result)) {
+    results <- append(results, list(list(file_name = file_name, check = "Validation Check 3", data = rates_result)))
+  } 
+  
+  return(results)
+}
+
+all_results <- future_lapply(file_paths, function(fp) {
+  tryCatch({
+    validate_and_process(fp)
+  }, error = function(e) {
+    message(paste("Error processing file:", fp))
+    message(e)
+    return(NULL)
+  })
+})
+
+# Flatten the list and remove NULLs
+all_results <- do.call(c, all_results)
+all_results <- all_results[!sapply(all_results, is.null)]
+
+# Collect and print problematic rows
+for (result in all_results) {
+  print(result$data)
+}
+
+
+```
+
+
+### (3) Calculate Rates
+This section calls the calculate_indicator function, which infers the indicator, calculates rates and confidence intervals for each indicator type, and merges the result into a single dataframe.
+```{r}
+# apply calculate_indicator function to each file path to process data
+results_individual <- lapply(file_paths, calculate_indicator)
+
+# combine individual results into a single dataframe for aggregated analysis
+results_combined <- dplyr::bind_rows(results_individual)
+
+# remove all white spaces from the MEASURE column to ensure consistency
+results_combined$MEASURE <- gsub("\\s", "", results_combined$MEASURE) 
+
+# load the value mapping file with specific data types set for the 'MEASURE' and 'value' columns
+value_keys <- read.csv("value_mapping.csv", header = TRUE,
+                       colClasses = list('MEASURE' = "character",
+                                         'value' = "character"))
+
+# join the processed results with the value mapping based on the 'MEASURE' column to enrich the dataset
+merged_df <- merge(results_combined, value_keys, by = "MEASURE", all.x = TRUE)
+
+# add confidence interval values by checking if the existing value is a confidence interval and updating accordingly
+merged_df$value.y <- ifelse(merged_df$value.x %in% c('lo_ci', 'up_ci'), yes = merged_df$value.x, no = merged_df$value.y)
+
+# remove the old value column and rename the columns for clarity
+merged_df <- merged_df %>% select(-value.x) %>% 
+             rename(c(UNIT = value.y, OBS_VALUE = number))
+
+```
+
+
+
+## (4) Dashboard
+This section displays the results of the calculation in an interactive dashboard. The user can select any specific indicator group/indicator/sex it is interested in via the dropdown lists on the left and can switch between table and graph views at the top of the dashboard.
+```{r}
+source("functions/dashboard_setup.R") # call the function which contains the dashboard UI settings
+shinyApp(ui, server) # display the dashboard
+```
+
+
+## (5) Generate the output file
+This section generates a csv file inside HCQO_validation/results which will be named according to the date and time of creation of the file.
+```{r}
+date.suffix <- format(Sys.time(), "%d%m%Y_%H%M") # extract current date and time
+
+# Create the file name
+file.name <- paste0("results_" , date.suffix, ".csv") # name the file with the date and time suffix
+file.name.full <- file.path('./results', file.name) # name output path
+
+# Save the file with the date and time suffix
+write.csv(merged_df, file = file.name.full, row.names = FALSE)
+
+# Print message once the csv file has been saved
+message("Results file successfully saved")
+
+```
+
+
