@@ -26,5 +26,6 @@ External codes are intended to be kept more simple, so that countries easily und
 - General: R codes now run with all indicators
 
 ### 16-06-internal
-- new data visualisation for cross country comparison
+- new output at the end of chunk 1 to previsualise the data as a tibble
+- new data visualisation for cross country comparison, which allows several REF_AREAs to be selected
 - validation checks run very slowly on combined datasets, rewrote validation checks with new syntax that makes them run in seconds instead of minutes
