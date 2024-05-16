@@ -5,12 +5,25 @@ Suffix internal/external means that the codes developed are intended for interna
 Internal codes contain more complex codes designed to run faster and compare country data. 
 External codes are intended to be kept more simple, so that countries easily understand them.
 
+### 04-18
+- all functions outsourced to separate folder to make the main script shorter and cleaner
+- validation checks separated from calculate rates chunk
+- visualisation includes both bar and line graphs, as well as confidence intervals
+- dropdown menu to select indicators/sex/reference area
+
+### 04-25
+- new R code to handle change in column names (now REF_AREA, TIME_PERIOD, AGE, SEX, OBS_VALUE, MEASURE, UNIT)
+- new load_csv.R function to handle csvs where the data is inputted in a single column
+- additional validate_format.R function to check that new column names are respected (Validation Check 1)
+
 
 ### 05-06
-- new SDMX format in the R codes
+- new R code to handle modified data to comply with SDMX standards (concerns TIME, AGE values)
+- detailed comments in each function to explain parts of the code
+- README file rewrote and restructured
 - data validation check 1 checks that SDMX is complied with
 - in data folder: example data csv which complies with the format and should run without errors.
-- General: R codes now run with all indicators.
+- General: R codes now run with all indicators
 
 ### 16-06-internal
 - new data visualisation for cross country comparison
