@@ -27,12 +27,15 @@ External codes are intended to be kept more simple, so that countries easily und
 
 ### 05-16-internal
 - new output at the end of chunk 1 to previsualise the data as a tibble
+- new validation check for missing data (e.g. a data point is missing)
+
+
+### 05-22-internal
 - new data visualisation for cross country comparison, which allows several REF_AREAs to be selected
-- validation checks run very slowly on combined datasets, rewrote validation checks with new syntax that makes them run in seconds instead of minutes
+- functions called only in chunks they are used in for better memory management & easier checking of code (some chunks independent now)
 
 
 ## Ideas for improvement
 - automatic assignment of indicators contained in input data when displaying shiny interface
 - internal: anomalies detection in validation check
-- new validation check for missing data (e.g. a data point is missing)
-
+- faster validation checks
