@@ -5,7 +5,7 @@ It is a private repository, therefore only people with granted access can view a
 
  ### Branches
  The repository is divided into the following branches:
- - main: contains the most recent version of the code, as well as combined datasets of historical data for each indicator, formatted according to the new guidelines and SDMX standards.
+ - main: contains the most recent version of the code, as well as a dataset for each indicator that can be used to test and run the code, formatted according to the new guidelines and SDMX standards
  - old-versions: contains older versions of the code, the folder names are sorted by date
 
  ### Running the code
